@@ -1,0 +1,656 @@
+<title>Ruta Directa UJAT &amp; Movilidad Villahermosa 2030</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* Layout: panel lateral de 390px + mapa a pantalla completa; en móvil el panel pasa abajo y se colapsa. */
+:root{
+  --bg:#f4f5f2; --panel:#ffffff; --ink:#16231f; --muted:#5b6b64; --line:#d9ded9;
+  --accent:#b45309; --accent-ink:#ffffff; --accent-soft:#fdf0e1;
+  --chip:#eceee9; --map-bg:#e7e9e4; --grid:#d6dad4; --ok:#166534; --warn:#92400e;
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1714; --panel:#16211d; --ink:#e8efeb; --muted:#9bada5; --line:#2b3a34;
+  --accent:#f59e0b; --accent-ink:#1a1204; --accent-soft:#2b2210;
+  --chip:#1f2d28; --map-bg:#1a2420; --grid:#24322c; --ok:#86efac; --warn:#fbbf24; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1714; --panel:#16211d; --ink:#e8efeb; --muted:#9bada5; --line:#2b3a34;
+  --accent:#f59e0b; --accent-ink:#1a1204; --accent-soft:#2b2210;
+  --chip:#1f2d28; --map-bg:#1a2420; --grid:#24322c; --ok:#86efac; --warn:#fbbf24; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;margin:0;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+#app{display:flex;height:100%;min-width:0}
+#side{width:390px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;z-index:5}
+#mapwrap{flex:1;min-width:0;position:relative}
+#map{position:absolute;inset:0;background-color:var(--map-bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:48px 48px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.head{padding:16px max(16px,env(safe-area-inset-left,0px)) 12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.head h1{font-size:20px;line-height:1.15;font-weight:700}
+.head small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+#toggle{display:none;margin-left:auto;border:1px solid var(--line);background:var(--chip);border-radius:8px;min-height:44px;min-width:44px}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:12px 6px;min-height:44px;font-weight:600;color:var(--muted);font-size:13px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.body{flex:1;overflow-y:auto;padding:16px;min-height:0}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:stretch}
+select{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px}
+.btn{border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:0 12px;min-height:44px;font-weight:600;font-size:13px;white-space:nowrap}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:none}
+.pinA,.pinB{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px}
+.pinA{background:#16a34a}.pinB{background:#dc2626}
+.hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:var(--panel)}
+.card.best{border-color:var(--accent);background:var(--accent-soft)}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:3px 8px;color:#fff;font-weight:700;font-size:12px}
+.steps{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:0}
+.steps li{display:grid;grid-template-columns:24px 1fr;gap:10px;padding-bottom:12px;position:relative}
+.steps li:not(:last-child)::before{content:"";position:absolute;left:11px;top:24px;bottom:0;border-left:2px dashed var(--line)}
+.dot{width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--panel);display:grid;place-items:center;font-size:12px;font-weight:700}
+.steps b{font-weight:600}
+.m{font-variant-numeric:tabular-nums;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.kpi{background:var(--chip);border-radius:8px;padding:8px}
+.kpi span{display:block;font-size:11px;color:var(--muted)}
+.kpi strong{font-family:var(--font-display);font-size:18px;font-variant-numeric:tabular-nums}
+.alt{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.alt:first-of-type{border-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:0 12px;min-height:44px;font-size:12px;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.rcard{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.rcard[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.rcard h3{font-size:15px;line-height:1.25;margin:8px 0 6px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:12px}
+.stoplist{margin:10px 0 0;padding:0 0 0 4px;list-style:none;border-left:3px solid var(--rc,#888)}
+.stoplist li{padding:3px 0 3px 12px;font-size:13px;position:relative}
+.stoplist li::before{content:"";position:absolute;left:-7px;top:10px;width:9px;height:9px;border-radius:50%;background:var(--panel);border:2px solid var(--rc,#888)}
+.guide p,.guide li{line-height:1.5}
+.guide h3{font-size:16px;margin:18px 0 6px}
+.guide ul{padding-left:18px;margin:6px 0}
+.note{background:var(--chip);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);margin-top:16px}
+#status{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:900;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;max-width:calc(100% - 24px);color:var(--muted)}
+#banner{position:absolute;top:12px;left:12px;right:70px;z-index:900;background:var(--accent-soft);border:1px solid var(--accent);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:12px}
+#pickhint{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:950;background:var(--ink);color:var(--panel);border-radius:999px;padding:8px 16px;font-weight:600;font-size:13px}
+.layers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line)}
+.lyr{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:0 12px;min-height:44px;font-size:12px;font-weight:600}
+.lyr[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.rd{margin:8px 0 0;font-size:12px;line-height:1.45;color:var(--muted)}
+.alt .badge{white-space:nowrap}
+.empty{color:var(--muted);padding:12px 0}
+
+/* Leaflet (núcleo mínimo; la hoja oficial viene de un host que este visor bloquea) */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;font-family:var(--font-body)}
+.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+.leaflet-container img.leaflet-tile,.leaflet-container .leaflet-marker-icon{max-width:none!important;max-height:none!important}
+.leaflet-container svg{max-width:none;max-height:none}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-zoom-box{width:0;height:0;box-sizing:border-box;z-index:800}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
+.leaflet-map-pane canvas{z-index:100}.leaflet-map-pane svg{z-index:200}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-right .leaflet-control{float:right;margin-right:10px}.leaflet-top .leaflet-control{margin-top:10px}.leaflet-bottom .leaflet-control{margin-bottom:10px}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}
+.leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive,.leaflet-dragging .leaflet-marker-draggable{cursor:grabbing}
+.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-image-layer,.leaflet-pane>svg path,.leaflet-tile-container{pointer-events:none}
+.leaflet-marker-icon.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto}
+.leaflet-marker-draggable{cursor:grab}
+.leaflet-crosshair,.leaflet-crosshair .leaflet-interactive{cursor:crosshair}
+.leaflet-bar{border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+.leaflet-bar a{display:block;width:44px;height:44px;line-height:44px;text-align:center;text-decoration:none;color:var(--ink);font-size:20px;font-weight:600;background:var(--panel)}
+.leaflet-bar a+a{border-top:1px solid var(--line)}
+.leaflet-control-attribution{background:var(--panel);color:var(--muted);font-size:11px;padding:2px 6px;border-radius:6px 0 0 0}
+.leaflet-control-attribution a{color:var(--muted)}
+.leaflet-tooltip{position:absolute;padding:4px 8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;white-space:nowrap;pointer-events:none;font-size:12px;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.leaflet-tooltip-top{margin-top:-6px}.leaflet-tooltip-bottom{margin-top:6px}.leaflet-tooltip-left{margin-left:-6px}.leaflet-tooltip-right{margin-left:6px}
+.leaflet-fade-anim .leaflet-tooltip{opacity:.95}
+
+.mk{display:grid;place-items:center;border-radius:50%;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);font:700 13px var(--font-display)}
+.mk-sq{border-radius:7px}
+.pin{width:30px;height:30px}
+.ptip{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+@media (max-width:820px){
+  #app{flex-direction:column-reverse}
+  #side{width:100%;height:50%;border-right:0;border-top:1px solid var(--line)}
+  #app.collapsed #side{height:auto}
+  #app.collapsed .tabs,#app.collapsed .body,#app.collapsed .layers{display:none}
+  #toggle{display:grid;place-items:center}
+  #banner{right:12px;top:auto;bottom:56px}
+  .head{padding-block:10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <aside id="side" aria-label="Panel de rutas">
+    <div class="head">
+      <div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r=".6"/><circle cx="16" cy="14" r=".6"/></svg></div>
+      <div><h1>Ruta Directa UJAT</h1><small>&amp; Movilidad Villahermosa 2030 · MOVITAB, fluvial y combis</small></div>
+      <button id="toggle" type="button" aria-label="Mostrar u ocultar el panel" aria-expanded="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg></button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="t-calc" data-tab="calc" aria-selected="true">Calcular ruta</button>
+      <button class="tab" role="tab" id="t-cat" data-tab="cat" aria-selected="false">Catálogo y campus</button>
+      <button class="tab" role="tab" id="t-guide" data-tab="guide" aria-selected="false">Guía foráneos</button>
+    </div>
+    <div class="layers" id="layers" role="group" aria-label="Sistemas de transporte"></div>
+    <div class="body" id="body" role="tabpanel"></div>
+  </aside>
+  <main id="mapwrap">
+    <div id="map" aria-label="Mapa de rutas de Villahermosa"></div>
+    <div id="banner" hidden>El mapa base no se descarga en este visor. Rutas, paradas y cálculo funcionan sobre fondo neutro. Abre el archivo HTML en tu navegador para ver las calles de OpenStreetMap.</div>
+    <div id="pickhint" hidden></div>
+    <div id="status" role="status"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- Validación ---------- */
+function okPt(c){return !!c&&Array.isArray(c)&&c.length>=2&&typeof c[0]==="number"&&typeof c[1]==="number"&&isFinite(c[0])&&isFinite(c[1])}
+
+/* ---------- Datos ---------- */
+var POIS=[
+ {id:"cultura",n:"UJAT Zona de la Cultura (DACEA / DACSyH / DAEA)",s:"UJAT Cultura",c:[17.9972,-92.9312],t:"ujat",d:"Av. Universidad"},
+ {id:"dacs",n:"UJAT DACS (Ciencias de la Salud)",s:"UJAT DACS",c:[17.9796,-92.9463],t:"ujat",d:"Av. Gregorio Méndez #2838, Tamulté"},
+ {id:"dacbiol",n:"UJAT DACBIOL (Ciencias Biológicas)",s:"UJAT DACBIOL",c:[17.9904,-92.9774],t:"ujat",d:"Carr. Villahermosa-Cárdenas Km 0.5"},
+ {id:"chontalpa",n:"UJAT Campus Chontalpa (DAIA / DACB / DACyT)",s:"UJAT Chontalpa",c:[18.0683,-93.1625],t:"ujat",d:"Carr. Cunduacán-Jalpa"},
+ {id:"altabrisa",n:"Plaza Altabrisa",s:"Altabrisa",c:[17.9680,-92.9419],t:"plaza",d:"Periférico Carlos Pellicer Cámara"},
+ {id:"galerias",n:"Galerías Tabasco 2000",s:"Tabasco 2000",c:[17.9992,-92.9412],t:"plaza",d:"Zona Tabasco 2000 / Paseo Tabasco"},
+ {id:"americas",n:"Plaza Las Américas",s:"Las Américas",c:[18.0076,-92.9255],t:"plaza",d:"Av. Universidad / Tierra Colorada"},
+ {id:"sendero",n:"Plaza Sendero",s:"Sendero",c:[18.0163,-92.9038],t:"plaza",d:"Periférico / Carr. Frontera"},
+ {id:"crystal",n:"Plaza Crystal",s:"Crystal",c:[17.9748,-92.9395],t:"plaza",d:"Av. Heroico Colegio Militar"},
+ {id:"europlaza",n:"Europlaza Cinépolis",s:"Europlaza",c:[17.9965,-92.9535],t:"plaza",d:"Av. Adolfo Ruiz Cortines"},
+ {id:"ec1",n:"Estación Central 1 (Nuevo Centro de Convenciones)",s:"Estación Central 1",c:[17.9945,-92.9620],t:"nodo2030",d:"Ampliación Paseo Tabasco · Monitoreo C-5 Escudo Olmeca"},
+ {id:"ec2",n:"Estación Central 2 (Parque Tabasco)",s:"Estación Central 2",c:[17.9978,-92.9565],t:"nodo2030",d:"Enlace Suburbano Norte · Carril exclusivo Paseo Tabasco"},
+ {id:"bicent",n:"Glorieta Av. Bicentenario",s:"Glorieta Bicentenario",c:[17.9885,-92.9685],t:"nodo2030",d:"Nodo de correspondencia Ampliación Paseo Tabasco (2.1 km)"},
+ {id:"pino",n:"Transferencia Multimodal Centro (Mercado Pino Suárez)",s:"Pino Suárez",c:[17.9958,-92.9142],t:"nodo2030",d:"Interconexión MOVITAB y Mercado Casa Blanca"},
+ {id:"casablanca",n:"Mercado Provisional Casa Blanca",s:"Mercado Casa Blanca",c:[17.9985,-92.9095],t:"nodo2030",d:"Conexión Multimodal Centro"},
+ {id:"embcentro",n:"Embarcadero Malecón Carlos A. Madrazo (Centro)",s:"Embarcadero Centro",c:[17.9918,-92.9152],t:"nodo2030",d:"Terminal Fluvial Grijalva · Enlace Rutas 1, 3 y 6"},
+ {id:"embgav",n:"Embarcadero Malecón Leandro Rovirosa Wade (Gaviotas)",s:"Embarcadero Gaviotas",c:[17.9912,-92.9135],t:"nodo2030",d:"Nodo Fluvial Grijalva · Enlace MOVITAB 1 y 2"},
+ {id:"embacha",n:"Embarcadero Rural Acachapan",s:"Embarcadero Acachapan",c:[18.0265,-92.9015],t:"nodo2030",d:"Terminal Fluvial Norte (corredor 12 km Río Grijalva)"},
+ {id:"hospitales",n:"Paradero Central Hospitales (27 de Febrero)",s:"Paradero Hospitales",c:[17.9852,-92.9415],t:"nodo2030",d:"Ascenso para Red Hospitalaria Estatal"},
+ {id:"graham",n:"Nodo de Salud Hospital Juan Graham",s:"Hospital Juan Graham",c:[17.9685,-92.9680],t:"nodo2030",d:"Tótems digitales y transferencia regional"},
+ {id:"ado",n:"Terminal de Autobuses ADO",s:"Terminal ADO",c:[17.9962,-92.9218],t:"nodo2030",d:"Av. Francisco Javier Mina"},
+ {id:"sabina",n:"Colonia Sabina (Terminal Sur-Poniente)",s:"Colonia Sabina",c:[17.9640,-92.9585],t:"nodo2030",d:"Extensión habitacional suroeste"},
+ {id:"frigo",n:"Frigorífico / Periférico Poniente",s:"Frigorífico",c:[17.9845,-92.9580],t:"nodo2030",d:"Correspondencia periférica poniente"}
+];
+var SYS={
+ terrestre:{l:"MOVITAB",full:"Sistema terrestre MOVITAB",c:"#2563EB",speed:20,veh:"MOVITAB"},
+ fluvial:{l:"Fluvial",full:"Sistema fluvial Río Grijalva",c:"#0284C7",speed:15,veh:"embarcación"},
+ estudiantil:{l:"Estudiantiles",full:"Rutas estudiantiles",c:"#CA8A04",speed:20,veh:"combi"}
+};
+var ROUTES=[
+ {id:"m1",sys:"terrestre",lab:"MOVITAB 1",n:"Bosques de Saloya · Av. Universidad · Centro · Gaviotas",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#2563EB",
+  cov:"Conecta la zona norte de la periferia con UJAT Cultura, Zona Centro y Gaviotas (sector Chiflón).",ej:"Av. Universidad, Zona Centro, cruce del Río Grijalva.",tr:"Transferencia Multimodal Centro (Pino Suárez / Casa Blanca), Nodo Fluvial Grijalva y cruce Av. Universidad (enlace Ruta 5).",
+  wp:[[18.0210,-92.9520],[18.0145,-92.9380],[18.0076,-92.9255],[17.9972,-92.9312],[17.9955,-92.9310],[17.9962,-92.9218],[17.9958,-92.9142],[17.9918,-92.9152],[17.9912,-92.9135],[17.9825,-92.9115],[17.9725,-92.9110]]},
+ {id:"m2",sys:"terrestre",lab:"MOVITAB 2",n:"Bicentenario · Paseo Tabasco · Periférico · Gaviotas",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#EA580C",
+  cov:"Enlaza los nuevos desarrollos habitacionales del sur-oriente y poniente con Periférico y Gaviotas.",ej:"Av. Bicentenario, Ampliación Paseo Tabasco, Periférico Carlos Pellicer Cámara, Colonia Gaviotas.",tr:"Glorieta Av. Bicentenario, Estaciones Centrales Paseo Tabasco (1 y 2) y Nodo Gaviotas Fluvial.",
+  wp:[[17.9885,-92.9685],[17.9945,-92.9620],[17.9978,-92.9565],[17.9895,-92.9490],[17.9796,-92.9463],[17.9680,-92.9419],[17.9695,-92.9250],[17.9785,-92.9135],[17.9912,-92.9135]]},
+ {id:"m3",sys:"terrestre",lab:"MOVITAB 3",n:"Méndez · Sabina (Méndez · DACS · Centro)",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#16A34A",
+  cov:"Refuerzo del eje comercial histórico, campus UJAT DACS y extensión hacia zonas habitacionales de Sabina.",ej:"Av. Gregorio Méndez Magaña, Zona Centro, Colonia Sabina.",tr:"Corredor Central Méndez (paraderos inteligentes con tótems en tiempo real) y Centro Histórico (Pino Suárez / Casa Blanca).",
+  wp:[[17.9985,-92.9095],[17.9958,-92.9142],[17.9905,-92.9225],[17.9896,-92.9312],[17.9836,-92.9408],[17.9796,-92.9463],[17.9768,-92.9554],[17.9705,-92.9572],[17.9640,-92.9585]]},
+ {id:"m4",sys:"terrestre",lab:"MOVITAB 4",n:"Frigorífico · Hospitales (27 de Febrero · Centro)",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#DC2626",
+  cov:"Eje prioritario de servicios médicos de alta especialización y equipamiento urbano sobre el poniente.",ej:"Av. 27 de Febrero, Prolongación de 27 de Febrero, zona de hospitales.",tr:"Paradero Central Hospitales e intersección Periférico Poniente.",
+  wp:[[17.9845,-92.9580],[17.9850,-92.9495],[17.9852,-92.9415],[17.9868,-92.9340],[17.9882,-92.9255],[17.9890,-92.9189],[17.9918,-92.9152]]},
+ {id:"m5",sys:"terrestre",lab:"MOVITAB 5",n:"Universidad · Centro (Universidad · Paseo Tabasco · Convenciones)",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#7C3AED",
+  cov:"Corredor de alta demanda académica (UJAT Zona Cultura), comercial (Tabasco 2000) y nuevo eje Paseo Tabasco.",ej:"Av. Universidad, zona de Tabasco 2000, Paseo Tabasco (ampliación 2.1 km), Centro.",tr:"Estación Central 1 (Centro de Convenciones), Estación Central 2 (Parque Tabasco) y cruce Ruiz Cortines.",
+  wp:[[18.0163,-92.9038],[18.0076,-92.9255],[17.9972,-92.9312],[17.9976,-92.9395],[17.9992,-92.9412],[17.9978,-92.9565],[17.9945,-92.9620],[17.9942,-92.9370],[17.9896,-92.9312],[17.9890,-92.9189],[17.9958,-92.9142]]},
+ {id:"m6",sys:"terrestre",lab:"MOVITAB 6",n:"Hospital Juan Graham · Esperanza Iris · Centro",tipo:"Sistema terrestre MOVITAB",fare:"$10.50",stu:"$5.50",freq:null,color:"#0D9488",
+  cov:"Enlace prioritario de salud pública y conexión con plazas del sur hacia el núcleo urbano.",ej:"Carretera a Isla del Carmen, Av. Esperanza Iris, Deportiva, Zona Centro.",tr:"Nodo de Salud Juan Graham (tótems digitales) y Puerta Centro (mercados).",
+  wp:[[17.9685,-92.9680],[17.9720,-92.9545],[17.9772,-92.9428],[17.9748,-92.9395],[17.9815,-92.9310],[17.9855,-92.9235],[17.9890,-92.9189],[17.9918,-92.9152],[17.9958,-92.9142]]},
+ {id:"f1",sys:"fluvial",lab:"Fluvial F1",n:"Conexión urbana Gaviotas · Centro (Río Grijalva)",tipo:"Sistema fluvial Río Grijalva",fare:"$12.00",stu:null,freq:null,color:"#0284C7",
+  cov:"Cruce y corredor fluvial urbano navegable que conecta ambos malecones. Capacidad: 18,000 pasajeros al día.",ej:"Cauce navegable del Río Grijalva (Malecón Carlos A. Madrazo y Malecón Leandro Rovirosa Wade).",tr:"Conexión a pie con Mercado Pino Suárez y enlace directo con rutas MOVITAB 1, 2, 3 y 6.",
+  wp:[[17.9958,-92.9132],[17.9918,-92.9152],[17.9912,-92.9135],[17.9865,-92.9138],[17.9820,-92.9125]]},
+ {id:"f2",sys:"fluvial",lab:"Fluvial F2",n:"Conexión rural Acachapan · Centro (corredor de 12 km)",tipo:"Sistema fluvial Río Grijalva",fare:"$15.00",stu:null,freq:null,color:"#0369A1",
+  cov:"12 kilómetros de vía navegable recuperada desde las comunidades de Acachapan hasta el Centro Histórico.",ej:"Río Grijalva Norte, Embarcadero Acachapan y terminal de transferencia Centro.",tr:"Embarcadero Acachapan.",
+  aprox:true,wp:[[18.0265,-92.9015],[18.0215,-92.9040],[18.0150,-92.9065],[18.0085,-92.9085],[18.0020,-92.9110],[17.9958,-92.9132]]},
+ {id:"e1",sys:"estudiantil",lab:"Estudiantil 01",n:"Indeco · Av. Universidad · ADO · Mercado Pino Suárez",tipo:"Combi / Transbus",fare:"$10.50",stu:"$5.50",freq:6,color:"#475569",
+  wp:[[18.0185,-92.9158],[18.0142,-92.9205],[18.0105,-92.9238],[18.0076,-92.9255],[18.0035,-92.9278],[18.0002,-92.9298],[17.9972,-92.9312],[17.9955,-92.9310],[17.9956,-92.9265],[17.9962,-92.9218],[17.9960,-92.9180],[17.9958,-92.9142]]},
+ {id:"e2",sys:"estudiantil",lab:"Estudiantil 02",n:"Tabasco 2000 · Paseo Tabasco · Av. Méndez · UJAT DACS · Tamulté",tipo:"Combi / Transbus Méndez",fare:"$10.50",stu:"$5.50",freq:5,color:"#65A30D",
+  wp:[[17.9992,-92.9412],[17.9968,-92.9390],[17.9942,-92.9370],[17.9918,-92.9340],[17.9896,-92.9312],[17.9872,-92.9355],[17.9850,-92.9388],[17.9836,-92.9408],[17.9815,-92.9438],[17.9796,-92.9463],[17.9782,-92.9508],[17.9768,-92.9554]]},
+ {id:"e3",sys:"estudiantil",lab:"Estudiantil 03",n:"Plaza Sendero · Av. Universidad · Ruiz Cortines · Europlaza · UJAT DACBIOL",tipo:"Combi Periférico / Ruiz Cortines",fare:"$10.50",stu:null,freq:8,color:"#CA8A04",
+  wp:[[18.0163,-92.9038],[18.0125,-92.9145],[18.0076,-92.9255],[18.0020,-92.9288],[17.9972,-92.9312],[17.9962,-92.9348],[17.9976,-92.9395],[17.9982,-92.9455],[17.9965,-92.9535],[17.9948,-92.9595],[17.9935,-92.9642],[17.9918,-92.9710],[17.9904,-92.9774]]},
+ {id:"e4",sys:"estudiantil",lab:"Estudiantil 04",n:"Pino Suárez · Centro · Paseo Tabasco · Deportiva · Plaza Crystal · Plaza Altabrisa",tipo:"Combi Circuito Sur",fare:"$10.50",stu:null,freq:7,color:"#A21CAF",
+  wp:[[17.9958,-92.9142],[17.9922,-92.9165],[17.9890,-92.9189],[17.9892,-92.9250],[17.9896,-92.9312],[17.9855,-92.9345],[17.9812,-92.9385],[17.9772,-92.9428],[17.9748,-92.9395],[17.9712,-92.9408],[17.9680,-92.9419]]},
+ {id:"e5",sys:"estudiantil",lab:"Estudiantil 05",n:"Van Universitaria Chontalpa · Terminal ADO · UJAT Cultura · DACBIOL · Campus Chontalpa",tipo:"Van foránea estudiantil",fare:"$25.00 – $30.00",stu:null,freq:15,color:"#E11D48",
+  wp:[[17.9962,-92.9218],[17.9956,-92.9265],[17.9972,-92.9312],[17.9976,-92.9395],[17.9965,-92.9535],[17.9935,-92.9642],[17.9904,-92.9774],[18.0050,-93.0250],[18.0320,-93.0850],[18.0683,-93.1625]]},
+ {id:"e6",sys:"estudiantil",lab:"Estudiantil 06",n:"Tierra Colorada · Av. Universidad · Paseo Usumacinta · Hospital del Niño · DACS",tipo:"Combi / Transbus",fare:"$10.50",stu:"$5.50",freq:6,color:"#0891B2",
+  wp:[[18.0195,-92.9245],[18.0076,-92.9255],[17.9972,-92.9312],[17.9962,-92.9348],[17.9912,-92.9395],[17.9852,-92.9415],[17.9818,-92.9435],[17.9796,-92.9463]]},
+ {id:"e7",sys:"estudiantil",lab:"Estudiantil 07",n:"Bosques de Saloya · Parque Tabasco · Tabasco 2000 · Paseo Tabasco · Centro",tipo:"Combi / Van",fare:"$10.50",stu:null,freq:8,color:"#92400E",
+  wp:[[18.0210,-92.9520],[18.0085,-92.9480],[17.9992,-92.9412],[17.9942,-92.9370],[17.9896,-92.9312],[17.9890,-92.9189],[17.9958,-92.9142]]},
+ {id:"e8",sys:"estudiantil",lab:"Estudiantil 08",n:"Gaviotas Sur/Norte · Malecón · Mercado Pino Suárez · Terminal ADO · UJAT Zona Cultura",tipo:"Combi urbana",fare:"$10.50",stu:null,freq:7,color:"#4F46E5",
+  wp:[[17.9725,-92.9110],[17.9825,-92.9145],[17.9905,-92.9155],[17.9958,-92.9142],[17.9962,-92.9218],[17.9955,-92.9310],[17.9972,-92.9312]]}
+];
+var FILTERS=[
+ {id:"all",l:"Todas"},{id:"cultura",l:"Zona Cultura (DACEA/DACSyH)",p:["cultura"]},{id:"dacs",l:"DACS (Salud)",p:["dacs"]},
+ {id:"dacbiol",l:"DACBIOL",p:["dacbiol"]},{id:"chontalpa",l:"Chontalpa",p:["chontalpa"]},
+ {id:"plazas",l:"Plazas",p:["altabrisa","galerias","americas","sendero","crystal","europlaza"]}
+];
+var TYPE={ujat:{c:"#b45309",sq:true},plaza:{c:"#0f766e",sq:false},nodo2030:{c:"#1d4ed8",sq:true}};
+function poi(id){return POIS.filter(function(p){return p.id===id})[0]}
+
+/* ---------- Geometría ---------- */
+var RAD=Math.PI/180;
+function hav(a,b){
+ if(!okPt(a)||!okPt(b))return null;
+ var R=6371000,dLa=(b[0]-a[0])*RAD,dLo=(b[1]-a[1])*RAD,
+ h=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(a[0]*RAD)*Math.cos(b[0]*RAD)*Math.sin(dLo/2)*Math.sin(dLo/2);
+ return 2*R*Math.asin(Math.sqrt(h));
+}
+/* Subdivide linealmente cada tramo entre waypoints; sin red, desde el primer instante. */
+function interpolatePath(waypoints,stepsPerSegment){
+ var steps=stepsPerSegment||18,out=[];
+ if(!Array.isArray(waypoints))return out;
+ var wp=waypoints.filter(okPt);
+ for(var i=0;i<wp.length-1;i++){
+  var a=wp[i],b=wp[i+1];
+  for(var k=0;k<steps;k++){var t=k/steps;out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t])}
+ }
+ if(wp.length)out.push([wp[wp.length-1][0],wp[wp.length-1][1]]);
+ return out;
+}
+function cumul(g){var c=[0];for(var i=1;i<g.length;i++)c.push(c[i-1]+(hav(g[i-1],g[i])||0));return c}
+ROUTES.forEach(function(r){r.wp=r.wp.filter(okPt);r.geom=interpolatePath(r.wp,18);r.cum=cumul(r.geom)});
+
+/* punto más cercano sobre la polilínea; s = índice de tramo + fracción */
+function nearest(line,p){
+ if(!Array.isArray(line)||line.length<2||!okPt(p))return null;
+ var best=null,kx=Math.cos(p[0]*RAD);
+ for(var i=0;i<line.length-1;i++){
+  var a=line[i],b=line[i+1];if(!okPt(a)||!okPt(b))continue;
+  var ax=(a[1]-p[1])*kx,ay=a[0]-p[0],bx=(b[1]-p[1])*kx,by=b[0]-p[0],
+   dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L)):0,
+   pt=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],d=hav(p,pt);
+  if(d!==null&&(!best||d<best.d))best={d:d,pt:pt,s:i+t,i:i};
+ }
+ return best;
+}
+function vpos(g,v){return {i:v,s:v,pt:g[v],d:0}}
+function slice(line,A,B){
+ var fwd=A.s<=B.s,lo=fwd?A:B,hi=fwd?B:A,pts=[lo.pt].concat(line.slice(lo.i+1,hi.i+1),[hi.pt]);
+ return fwd?pts:pts.reverse();
+}
+function plen(pts){var d=0;for(var i=1;i<pts.length;i++)d+=(hav(pts[i-1],pts[i])||0);return d}
+function cumAt(r,pos){var n=r.geom.length,i=Math.max(0,Math.min(Math.floor(pos.s),n-2)),f=pos.s-i;return r.cum[i]+(r.cum[i+1]-r.cum[i])*f}
+function fm(m){return m>=1000?(m/1000).toFixed(1)+" km":Math.round(m)+" m"}
+function fkm(km){return km.toFixed(1)+" km"}
+
+/* Nodos de transferencia posibles entre dos rutas (vértices a menos de 350 m), calculados una vez */
+var XF={};
+function xfers(r1,r2){
+ var key=r1.id+"|"+r2.id;if(XF[key])return XF[key];
+ var out=[],g1=r1.geom,g2=r2.geom,KY=111320,KX=111320*Math.cos(17.99*RAD);
+ for(var i=0;i<g1.length;i+=3){
+  var bj=-1,bd=Infinity;
+  for(var j=0;j<g2.length;j+=3){
+   var dy=(g1[i][0]-g2[j][0])*KY,dx=(g1[i][1]-g2[j][1])*KX,d2=dx*dx+dy*dy;
+   if(d2<bd){bd=d2;bj=j}
+  }
+  if(bj>=0&&bd<=350*350)out.push({i:i,j:bj,g:Math.sqrt(bd)});
+ }
+ XF[key]=out;return out;
+}
+
+/* ---------- Estado ---------- */
+var S={tab:"calc",A:null,B:null,pick:null,filter:"all",focus:null,res:null,sel:0,sys:{terrestre:true,fluvial:true,estudiantil:true}};
+function setPoint(k,latlng,pid){
+ if(pid&&poi(pid)){S[k]={c:poi(pid).c,pid:pid,l:poi(pid).s};return}
+ if(!okPt(latlng))return;
+ S[k]={c:[latlng[0],latlng[1]],pid:null,l:"Punto en el mapa"};
+}
+function activeRoutes(){return ROUTES.filter(function(r){return S.sys[r.sys]})}
+
+/* ---------- Mapa ---------- */
+var map=L.map("map",{zoomControl:false,attributionControl:true}).setView([17.9915,-92.9350],13);
+L.control.zoom({position:"topright"}).addTo(map);
+var tiles=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
+var tOk=0,tErr=0;
+tiles.on("tileload",function(){tOk++;document.getElementById("banner").hidden=true});
+tiles.on("tileerror",function(){tErr++;if(!tOk&&tErr>3)document.getElementById("banner").hidden=false});
+var poiLayer=L.layerGroup().addTo(map),routeLayer=L.layerGroup().addTo(map),hiLayer=L.layerGroup().addTo(map),stopLayer=L.layerGroup().addTo(map),pinLayer=L.layerGroup().addTo(map);
+var polys={};
+
+function poiIcon(p){
+ var emb=p.id.indexOf("emb")===0,col=emb?"#0284C7":TYPE[p.t].c;
+ var svg=emb?'<path d="M3 15c2 2 4 2 6 0s4-2 6 0 4 2 6 0M5 12l1-6h12l1 6M12 6V3" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>':
+ ({ujat:'<path d="M12 4l9 5-9 5-9-5 9-5zM7 12v4c0 1.5 2.2 3 5 3s5-1.5 5-3v-4" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+  plaza:'<path d="M5 9h14l-1 10H6L5 9zM9 9V7a3 3 0 016 0v2" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+  nodo2030:'<path d="M5 8h14v8H5zM5 12h14M8 19v-3M16 19v-3" fill="none" stroke="#fff" stroke-width="2"/>'}[p.t]);
+ var s=p.t==="nodo2030"?24:28,sq=emb?false:TYPE[p.t].sq;
+ return L.divIcon({className:"",iconSize:[s,s],iconAnchor:[s/2,s/2],html:'<div class="mk'+(sq?" mk-sq":"")+'" style="width:'+s+'px;height:'+s+'px;background:'+col+'"><svg width="'+(s-8)+'" height="'+(s-8)+'" viewBox="0 0 24 24" aria-hidden="true">'+svg+'</svg></div>'});
+}
+function drawPois(){
+ poiLayer.clearLayers();
+ var hl=null,f=FILTERS.filter(function(x){return x.id===S.filter})[0];if(S.tab==="cat"&&f&&f.p)hl=f.p;
+ POIS.forEach(function(p){
+  if(!okPt(p.c))return;
+  var m=L.marker(p.c,{icon:poiIcon(p),keyboard:false,opacity:(hl&&hl.indexOf(p.id)<0)?0.35:1,zIndexOffset:p.t==="ujat"?300:100});
+  m.bindTooltip(p.t==="ujat"?p.s:p.s+" · "+p.d,{permanent:p.t==="ujat",direction:"top",offset:[0,-12]});
+  m.on("click",function(){if(S.pick){var k=S.pick;S.pick=null;setPoint(k,null,p.id);S.tab="calc";run(true);}});
+  m.addTo(poiLayer);
+ });
+}
+function drawRoutes(mode){
+ routeLayer.clearLayers();polys={};
+ if(mode==="none")return; /* las rutas solo se dibujan al elegir A y B, o al abrir una del catálogo */
+ activeRoutes().forEach(function(r){
+  var g=r.snapGeom||r.geom;
+  if(!g.length||S.focus!==r.id)return;
+  var w=7,o=1;
+  var pl=L.polyline(g,{color:r.color,weight:w,opacity:o,lineJoin:"round",dashArray:r.sys==="fluvial"?"10, 7":null}).addTo(routeLayer);
+  pl.bindTooltip(r.lab,{sticky:true});
+  pl.on("click",function(){if(S.tab==="cat"){S.focus=r.id;render();}});
+  polys[r.id]=pl;
+ });
+}
+function pinIcon(letter,col){return L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,15],html:'<div class="mk pin" style="background:'+col+'">'+letter+'</div>'})}
+function badgeIcon(path,col){return L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,14],html:'<div class="mk mk-sq" style="width:28px;height:28px;background:'+col+'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg></div>'})}
+var UP='<path d="M12 19V5M5 12l7-7 7 7"/>',DOWN='<path d="M12 5v14M5 12l7 7 7-7"/>',SWAP='<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>';
+function drawPins(){
+ pinLayer.clearLayers();
+ [["A","#16a34a","Punto A (Origen)"],["B","#dc2626","Punto B (Destino)"]].forEach(function(x){
+  var k=x[0],pt=S[k];if(!pt||!okPt(pt.c))return;
+  var m=L.marker(pt.c,{icon:pinIcon(k,x[1]),draggable:true,zIndexOffset:1000,title:x[2]}).addTo(pinLayer);
+  m.bindTooltip(x[2]+(pt.pid?": "+pt.l:""),{direction:"top",offset:[0,-14]});
+  m.on("dragend",function(){var ll=m.getLatLng();setPoint(k,[ll.lat,ll.lng],null);run(true);});
+ });
+}
+
+/* ---------- Cálculo A → B (directo o con un transbordo) ---------- */
+function directOpt(r,b,a){
+ var seg=slice(r.geom,b,a),km=plen(seg)/1000;
+ return {kind:"direct",legs:[{r:r,b:b,a:a,seg:seg,km:km}],w0:b.d,wm:0,w1:a.d,walk:b.d+a.d,km:km,far:false};
+}
+function compute(){
+ S.res=null;
+ if(!S.A||!S.B||!okPt(S.A.c)||!okPt(S.B.c))return;
+ var R=activeRoutes();if(!R.length)return;
+ var bm={},am={},direct=[];
+ R.forEach(function(r){
+  var b=nearest(r.geom,S.A.c),a=nearest(r.geom,S.B.c);if(!b||!a)return;
+  bm[r.id]=b;am[r.id]=a;direct.push(directOpt(r,b,a));
+ });
+ direct.sort(function(x,y){return x.walk-y.walk});
+ var ok=direct.filter(function(d){return d.w0<=600&&d.w1<=600});
+ if(ok.length){S.res=ok.slice(0,6);S.sel=0;return}
+ /* transbordo: dos rutas con un nodo común a menos de 350 m */
+ var xs=[];
+ R.forEach(function(r1){R.forEach(function(r2){
+  if(r1===r2||!bm[r1.id]||!am[r2.id])return;
+  var b=bm[r1.id],a=am[r2.id];if(b.d>1500||a.d>1500)return;
+  var cb=cumAt(r1,b),ca=cumAt(r2,a),best=null;
+  xfers(r1,r2).forEach(function(x){
+   var ride1=Math.abs(r1.cum[x.i]-cb),ride2=Math.abs(r2.cum[x.j]-ca);
+   if(ride1<80||ride2<80)return;
+   var cost=b.d+a.d+2*x.g+0.05*(ride1+ride2);
+   if(!best||cost<best.cost)best={x:x,cost:cost};
+  });
+  if(best)xs.push({r1:r1,r2:r2,b:b,a:a,x:best.x,cost:best.cost});
+ })});
+ xs.sort(function(p,q){return p.cost-q.cost});
+ var seen={},out=[];
+ xs.forEach(function(e){
+  if(out.length>=3)return;
+  var p1=vpos(e.r1.geom,e.x.i),p2=vpos(e.r2.geom,e.x.j),
+   s1=slice(e.r1.geom,e.b,p1),s2=slice(e.r2.geom,p2,e.a),k1=plen(s1)/1000,k2=plen(s2)/1000;
+  out.push({kind:"xfer",legs:[{r:e.r1,b:e.b,a:p1,seg:s1,km:k1},{r:e.r2,b:p2,a:e.a,seg:s2,km:k2}],
+   w0:e.b.d,wm:e.x.g,w1:e.a.d,walk:e.b.d+e.a.d+e.x.g,km:k1+k2,far:false});
+ });
+ if(out.length){S.res=out;S.sel=0;return}
+ S.res=direct.slice(0,3).map(function(d){d.far=true;return d});S.sel=0;
+ if(!S.res.length)S.res=null;
+}
+function cur(){return S.res&&S.res[Math.min(S.sel,S.res.length-1)]}
+function drawResult(){
+ hiLayer.clearLayers();stopLayer.clearLayers();
+ var x=cur();if(!x||!S.A||!S.B)return;
+ var g="#64748b",last=x.legs[x.legs.length-1],first=x.legs[0];
+ L.polyline([S.A.c,first.b.pt],{color:g,weight:3,dashArray:"6, 8"}).bindTooltip(Math.round(x.w0)+" m caminando",{permanent:true,direction:"center",className:"ptip"}).addTo(hiLayer);
+ x.legs.forEach(function(l){
+  if(polys[l.r.id])polys[l.r.id].setStyle({opacity:.18});
+  L.polyline(l.seg,{color:l.r.color,weight:7,opacity:1,lineCap:"round",lineJoin:"round"}).addTo(hiLayer);
+ });
+ L.polyline([last.a.pt,S.B.c],{color:g,weight:3,dashArray:"6, 8"}).bindTooltip(Math.round(x.w1)+" m caminando",{permanent:true,direction:"center",className:"ptip"}).addTo(hiLayer);
+ L.marker(first.b.pt,{icon:badgeIcon(UP,first.r.color),zIndexOffset:900}).bindTooltip("Subir aquí · "+first.r.lab,{permanent:true,direction:"top",offset:[0,-14]}).addTo(hiLayer);
+ L.marker(last.a.pt,{icon:badgeIcon(DOWN,last.r.color),zIndexOffset:900}).bindTooltip("Bajar aquí",{permanent:true,direction:"top",offset:[0,-14]}).addTo(hiLayer);
+ if(x.kind==="xfer"){
+  var t1=x.legs[0].a.pt,t2=x.legs[1].b.pt;
+  if(x.wm>5)L.polyline([t1,t2],{color:g,weight:3,dashArray:"6, 8"}).bindTooltip(Math.round(x.wm)+" m caminando",{permanent:true,direction:"center",className:"ptip"}).addTo(hiLayer);
+  L.marker([(t1[0]+t2[0])/2,(t1[1]+t2[1])/2],{icon:badgeIcon(SWAP,"#0f172a"),zIndexOffset:950}).bindTooltip("Nodo de Transferencia · "+x.legs[1].r.lab,{permanent:true,direction:"top",offset:[0,-14]}).addTo(hiLayer);
+ }
+}
+function fitResult(){
+ var x=cur();if(!x||!S.A||!S.B)return;
+ var pts=[S.A.c,S.B.c];x.legs.forEach(function(l){pts=pts.concat(l.seg)});
+ pts=pts.filter(okPt);if(pts.length)map.fitBounds(L.latLngBounds(pts),{padding:[60,60],maxZoom:16});
+}
+
+/* ---------- UI ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function opts(sel){
+ var g=[["ujat","Divisiones UJAT"],["plaza","Plazas comerciales"],["nodo2030","Nodos de transferencia y embarcaderos 2030"]],
+  h=sel==="__none"?'<option value="__none" selected disabled>Elige un lugar…</option>':'<option value="__map"'+(sel==="__map"?" selected":"")+' disabled>Punto marcado en el mapa</option>';
+ g.forEach(function(x){h+='<optgroup label="'+x[1]+'">';POIS.filter(function(p){return p.t===x[0]}).forEach(function(p){h+='<option value="'+p.id+'"'+(sel===p.id?" selected":"")+'>'+esc(p.n)+'</option>'});h+='</optgroup>'});
+ return h;
+}
+function fareTxt(r){return r.fare+" MXN"+(r.stu?" (estudiantes "+r.stu+")":"")}
+function badge(r){return '<span class="badge" style="background:'+r.color+'">'+esc(r.lab)+'</span>'}
+function minutes(x){
+ var t=x.walk/80;x.legs.forEach(function(l){t+=l.km/SYS[l.r.sys].speed*60+(l.r.freq||10)/2});
+ return Math.round(t);
+}
+function layersHTML(){
+ var h="";Object.keys(SYS).forEach(function(k){h+='<button class="lyr" type="button" data-sys="'+k+'" aria-pressed="'+S.sys[k]+'"><span class="sw" style="background:'+SYS[k].c+'"></span>'+SYS[k].l+'</button>'});
+ return h;
+}
+function calcHTML(){
+ var h='<p class="hint">Elige origen y destino en las listas, toca el mapa o arrastra los pines A y B.</p>';
+ h+='<div class="field"><label for="selA"><span class="pinA"></span>Punto A · Origen</label><div class="row"><select id="selA">'+opts(S.A?(S.A.pid||"__map"):"__none")+'</select><button class="btn" id="pickA" type="button" aria-pressed="'+(S.pick==="A")+'">Marcar A en el mapa</button></div></div>';
+ h+='<div class="field"><label for="selB"><span class="pinB"></span>Punto B · Destino</label><div class="row"><select id="selB">'+opts(S.B?(S.B.pid||"__map"):"__none")+'</select><button class="btn" id="pickB" type="button" aria-pressed="'+(S.pick==="B")+'">Marcar B en el mapa</button></div></div>';
+ h+='<div class="row" style="margin-bottom:4px"><button class="btn" id="swap" type="button" style="flex:1">Intercambiar A y B</button><button class="btn ghost" id="clear" type="button" style="flex:1">Limpiar búsqueda</button></div>';
+ var x=cur();
+ if(!x){h+='<div class="card empty">'+(S.A&&S.B?"No hay rutas activas. Enciende al menos un sistema arriba.":"Define el punto A y el punto B para ver cómo llegar.")+'</div>';return h}
+ var first=x.legs[0],r=first.r;
+ h+='<div class="card best"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+x.legs.map(function(l){return badge(l.r)}).join('<span aria-hidden="true">›</span>')+'<strong>'+(x.kind==="xfer"?"Con transbordo":(S.sel===0?"Mejor opción":"Opción "+(S.sel+1)))+'</strong></div>';
+ h+='<div class="kpis"><div class="kpi"><span>Caminata total</span><strong>'+fm(x.walk)+'</strong></div><div class="kpi"><span>A bordo</span><strong>'+fkm(x.km)+'</strong></div><div class="kpi"><span>Tiempo aprox.</span><strong>'+minutes(x)+' min</strong></div></div>';
+ var n=1;h+='<ol class="steps">';
+ h+='<li><span class="dot">'+(n++)+'</span><div>Camina <span class="m">'+Math.round(x.w0)+' m</span> desde <b>'+esc(S.A.l)+'</b> hasta la parada de subida.</div></li>';
+ x.legs.forEach(function(l,i){
+  var q=l.r;
+  h+='<li><span class="dot">'+(n++)+'</span><div>'+(i===0?"Sube a ":"Sube a ")+'<b>'+esc(q.lab)+'</b> ('+SYS[q.sys].veh+'). Tarifa <span class="m">'+esc(fareTxt(q))+'</span>.'+(q.freq?' Pasa cada <span class="m">'+q.freq+' min</span>.':' Frecuencia por confirmar.')+' Viaja <span class="m">'+fkm(l.km)+'</span> hasta '+(i===0&&x.kind==="xfer"?'el nodo de transferencia.':'tu bajada.')+'</div></li>';
+  if(i===0&&x.kind==="xfer")h+='<li><span class="dot">'+(n++)+'</span><div>Baja y camina <span class="m">'+Math.round(x.wm)+' m</span> hasta la parada de <b>'+esc(x.legs[1].r.lab)+'</b>. Pagas una segunda tarifa.</div></li>';
+ });
+ h+='<li><span class="dot">'+n+'</span><div>Baja y camina <span class="m">'+Math.round(x.w1)+' m</span> hasta <b>'+esc(S.B.l)+'</b>.</div></li></ol>';
+ if(x.far)h+='<p class="hint" style="color:var(--warn);margin:0">Ninguna ruta, ni con un transbordo, pasa a menos de 600 m de A y B. Esta es la opción más cercana. Considera mover los pines.</p>';
+ else if(x.walk>2500)h+='<p class="hint" style="color:var(--warn);margin:0">La caminata es larga. Considera otro punto cercano a la ruta.</p>';
+ if(x.state==="fail")h+='<p class="hint" style="color:var(--warn);margin:8px 0 0">No hubo conexión con el servicio de calles. Este trazado es aproximado y puede cruzar edificios o agua. Abre el archivo HTML en tu navegador para el trazado sobre calles.</p>';
+ h+='</div>';
+ h+='<h3 style="font-size:14px;margin:16px 0 4px">Opciones, de menor a mayor caminata</h3>';
+ S.res.forEach(function(y,i){h+='<div class="alt"><span style="display:flex;gap:4px;flex-wrap:wrap">'+y.legs.map(function(l){return badge(l.r)}).join("")+'</span><span style="flex:1;min-width:0">Caminata <span class="m">'+fm(y.walk)+'</span> · '+fkm(y.km)+'</span><button class="btn ghost" data-sel="'+i+'" type="button" aria-pressed="'+(i===S.sel)+'">'+(i===S.sel?"Mostrada":"Ver")+'</button></div>'});
+ return h;
+}
+function matches(f,r){
+ if(!f.p)return true;
+ return f.p.some(function(id){var n=nearest(r.geom,poi(id).c);return n&&n.d<350});
+}
+function stopsFor(r){
+ var out=[];r.wp.forEach(function(w,i){
+  var best=null;POIS.forEach(function(p){var d=hav(w,p.c);if(d!==null&&d<300&&(!best||d<best.d))best={d:d,p:p}});
+  out.push({i:i,name:best?best.p.s:null,end:i===0||i===r.wp.length-1,c:w});
+ });
+ return out;
+}
+function catHTML(){
+ var f=FILTERS.filter(function(x){return x.id===S.filter})[0],h='<div class="chips" role="group" aria-label="Filtrar por destino">';
+ FILTERS.forEach(function(x){h+='<button class="chip" type="button" data-f="'+x.id+'" aria-pressed="'+(x.id===S.filter)+'">'+x.l+'</button>'});
+ h+='</div>';
+ var list=activeRoutes().filter(function(r){return matches(f,r)});
+ if(!list.length)return h+'<div class="empty">Ninguna ruta activa pasa a menos de 350 m de este lugar.</div>';
+ h+='<p class="hint">'+list.length+' rutas'+(f.p?' pasan a menos de 350 m de '+(f.id==="plazas"?"las plazas":"este campus"):'')+'. Toca una ruta para verla en el mapa.</p>';
+ list.forEach(function(r){
+  var on=S.focus===r.id;
+  h+='<button class="rcard" type="button" data-r="'+r.id+'" aria-pressed="'+on+'" style="--rc:'+r.color+'">'+badge(r)+'<h3>'+esc(r.n)+'</h3><div class="meta"><span>'+esc(r.tipo)+'</span><span>'+(r.freq?'Cada '+r.freq+' min':'Frecuencia por confirmar')+'</span><span>'+esc(fareTxt(r))+'</span></div>';
+  if(on){
+   var st=stopsFor(r),named=st.filter(function(s){return s.name||s.end}),other=st.length-named.length;
+   h+=(r.cov?'<p class="rd">'+esc(r.cov)+'</p>':'')+(r.ej?'<p class="rd"><b>Ejes viales:</b> '+esc(r.ej)+'</p>':'')+(r.tr?'<p class="rd"><b>Transferencias:</b> '+esc(r.tr)+'</p>':'')+
+    (r.aprox?'<p class="rd" style="color:var(--warn)">El trazado intermedio de esta ruta es una estimación entre sus dos embarcaderos.</p>':'')+
+    '<ul class="stoplist">'+named.map(function(s){return'<li>'+(s.name?esc(s.name):(s.i===0?"Inicio":"Final"))+'</li>'}).join('')+'</ul><div class="meta" style="margin-top:6px">'+st.length+' paradas de referencia'+(other?' ('+other+' sin lugar destacado)':'')+'</div>';
+  }
+  h+='</button>';
+ });
+ return h;
+}
+function guideHTML(){
+ return '<div class="guide"><h3>Tres sistemas, una sola búsqueda</h3><p>Esta guía junta el sistema terrestre MOVITAB (rutas 1 a 6), el sistema fluvial del Río Grijalva (F1 y F2) y las rutas estudiantiles tradicionales. Activa o apaga cada sistema con los botones de color arriba del panel.</p>'+
+ '<h3>Cómo se elige la ruta</h3><ul><li>Primero busca una sola ruta que pase a menos de 600 m de A y de B.</li><li>Si no existe, busca dos rutas que compartan un nodo a menos de 350 m. Pagas una tarifa por cada ruta.</li><li>Entre varias opciones gana la que pide menos caminata.</li></ul>'+
+ '<h3>Cómo leer el parabrisas</h3><p>Cada combi lleva un letrero con el nombre o número de ruta y los lugares principales por donde pasa. Confirma con el chofer antes de subir.</p>'+
+ '<h3>Nodos clave</h3><ul><li><b>Pino Suárez y Casa Blanca:</b> transferencia multimodal del Centro.</li><li><b>Embarcaderos Centro y Gaviotas:</b> enlazan MOVITAB con el Río Grijalva.</li><li><b>Estaciones Centrales 1 y 2:</b> Centro de Convenciones y Parque Tabasco, sobre la ampliación de Paseo Tabasco.</li><li><b>Terminal ADO (Av. Mina):</b> llegada de autobuses foráneos.</li><li><b>Paradero Hospitales (27 de Febrero) y Hospital Juan Graham:</b> red hospitalaria.</li></ul>'+
+ '<h3>Tarifas del catálogo</h3><ul><li>MOVITAB: $10.50 MXN, estudiantes $5.50.</li><li>Fluvial: F1 $12.00 y F2 $15.00.</li><li>Combis estudiantiles: $10.50, estudiantes $5.50 en las rutas 01, 02 y 06. Van a Chontalpa: $25 a $30.</li><li>Lleva monedas. No des por hecho que haya cambio.</li></ul>'+
+ '<div class="note">Rutas, tarifas y nodos son datos de referencia del proyecto Villahermosa 2030 y pueden cambiar. El trazado terrestre se ajusta a las calles con OSRM cuando hay conexión. Sin ella queda aproximado, con líneas rectas entre waypoints. Los tramos fluviales siempre son aproximados. Caminata y tiempo son estimaciones (80 m por minuto a pie, 20 km/h en tierra, 15 km/h en el río, espera de la mitad de la frecuencia).</div></div>';
+}
+function render(){
+ var b=document.getElementById("body"),top=b.scrollTop;
+ ["calc","cat","guide"].forEach(function(t){document.getElementById("t-"+t).setAttribute("aria-selected",S.tab===t)});
+ document.getElementById("layers").innerHTML=layersHTML();
+ b.innerHTML=S.tab==="calc"?calcHTML():S.tab==="cat"?catHTML():guideHTML();
+ b.scrollTop=top;
+ drawPois();drawPins();hiLayer.clearLayers();stopLayer.clearLayers();
+ if(S.tab==="calc"){drawRoutes("none");drawResult();}
+ else if(S.tab==="cat"){drawRoutes(S.focus?"focus":"none");
+  if(S.focus){var r=ROUTES.filter(function(x){return x.id===S.focus})[0];if(r)stopsFor(r).forEach(function(s){L.circleMarker(s.c,{radius:s.name||s.end?6:4,color:r.color,weight:2,fillColor:"#fff",fillOpacity:1}).addTo(stopLayer)})}}
+ else drawRoutes("none");
+ document.getElementById("pickhint").hidden=!S.pick;
+ if(S.pick)document.getElementById("pickhint").textContent="Toca el mapa para fijar el punto "+S.pick;
+ map.getContainer().classList.toggle("leaflet-crosshair",!!S.pick);
+ document.getElementById("status").textContent=statusText();
+}
+function statusText(){
+ if(S.tab==="calc"){
+  var x=cur();if(!x)return "Elige el punto A y el punto B para trazar tu ruta";
+  return {ok:"Trazado sobre las calles (OSRM)",fail:"Trazado aproximado: sin conexión al servicio de calles",fluvial:"Trazado fluvial aproximado"}[x.state]||"Ajustando el trazado a las calles…";
+ }
+ if(S.tab==="cat")return S.focus?(function(){var r=ROUTES.filter(function(q){return q.id===S.focus})[0];return r&&r.snapGeom?"Trazado sobre las calles (OSRM)":"Trazado aproximado"})():"Toca una ruta para verla en el mapa";
+ return "Las rutas se dibujan al calcular A → B";
+}
+/* ---------- Ajuste a calles con OSRM (solo la ruta mostrada; si falla, queda el trazado aproximado) ---------- */
+var SC={},snapTok=0;
+function legWps(l){
+ var r=l.r,a=nearest(r.wp,l.b.pt),b=nearest(r.wp,l.a.pt);
+ if(!a||!b)return [l.b.pt,l.a.pt];
+ var fwd=a.s<=b.s,lo=fwd?a:b,hi=fwd?b:a,pts=[lo.pt].concat(r.wp.slice(lo.i+1,hi.i+1),[hi.pt]);
+ return fwd?pts:pts.reverse();
+}
+function osrmRoute(pts){
+ pts=pts.filter(okPt);if(pts.length<2)return Promise.reject(new Error("pts"));
+ var key=pts.map(function(p){return p[0].toFixed(5)+","+p[1].toFixed(5)}).join(";");
+ if(SC[key])return SC[key];
+ function ask(list){
+  var ctl=typeof AbortController!=="undefined"?new AbortController():null;
+  var url="https://router.project-osrm.org/route/v1/driving/"+list.map(function(p){return p[1].toFixed(6)+","+p[0].toFixed(6)}).join(";")+"?overview=full&geometries=geojson&continue_straight=false";
+  var lim=new Promise(function(_,rej){setTimeout(function(){if(ctl)ctl.abort();rej(new Error("timeout"))},3000)});
+  return Promise.race([fetch(url,ctl?{signal:ctl.signal}:{}).then(function(r){return r.json()}),lim]).then(function(j){
+   var rt=j&&j.routes&&j.routes[0];if(!rt||!rt.geometry||!Array.isArray(rt.geometry.coordinates))throw new Error("noroute");
+   var c=rt.geometry.coordinates.map(function(q){return[q[1],q[0]]}).filter(okPt);
+   if(c.length<2)throw new Error("short");
+   return {coords:c,km:rt.distance/1000,wps:j.waypoints||[]};
+  });
+ }
+ /* un waypoint a más de 60 m de una calle se descarta y se pide de nuevo, para evitar desvíos */
+ var p=ask(pts).then(function(o){
+  var keep=pts.filter(function(q,i){var w=o.wps[i];return i===0||i===pts.length-1||!w||typeof w.distance!=="number"||w.distance<=60});
+  if(keep.length<pts.length&&keep.length>=2)return ask(keep).catch(function(){return o});
+  return o;
+ });
+ SC[key]=p;p.catch(function(){delete SC[key]});return p;
+}
+function snap(){
+ var x=cur(),tok=++snapTok;if(!x)return;
+ var jobs=x.legs.map(function(l){
+  if(l.r.sys==="fluvial"||l.snapped)return Promise.resolve(false);
+  return osrmRoute(legWps(l)).then(function(o){
+   l.seg=o.coords;l.km=o.km;l.snapped=true;
+   l.b={pt:o.coords[0],s:l.b.s,i:l.b.i,d:0};l.a={pt:o.coords[o.coords.length-1],s:l.a.s,i:l.a.i,d:0};return true;
+  }).catch(function(){return false});
+ });
+ Promise.all(jobs).then(function(res){
+  if(tok!==snapTok||cur()!==x)return;
+  var any=res.some(Boolean),f=x.legs[0],e=x.legs[x.legs.length-1];
+  if(any){
+   x.w0=hav(S.A.c,f.b.pt)||x.w0;x.w1=hav(e.a.pt,S.B.c)||x.w1;
+   if(x.kind==="xfer")x.wm=hav(x.legs[0].a.pt,x.legs[1].b.pt)||x.wm;
+   x.walk=x.w0+x.wm+x.w1;x.km=x.legs.reduce(function(sum,l){return sum+l.km},0);
+  }
+  x.state=any?"ok":(x.legs.every(function(l){return l.r.sys==="fluvial"})?"fluvial":"fail");
+  render();
+ });
+}
+function snapFocus(){
+ var r=ROUTES.filter(function(q){return q.id===S.focus})[0];
+ if(!r||r.sys==="fluvial"||r.snapGeom)return;
+ osrmRoute(r.wp).then(function(o){r.snapGeom=o.coords;if(S.focus===r.id&&S.tab==="cat")render()}).catch(function(){});
+}
+function run(fit){compute();render();if(fit&&S.tab==="calc")fitResult();if(S.tab==="calc")snap();}
+
+/* ---------- Eventos ---------- */
+function sizeFix(){setTimeout(function(){map.invalidateSize()},60)}
+function onPanel(e){
+ var t=e.target.closest("button");if(!t)return;
+ if(t.dataset.sys){S.sys[t.dataset.sys]=!S.sys[t.dataset.sys];
+   var fr=ROUTES.filter(function(x){return x.id===S.focus})[0];if(fr&&!S.sys[fr.sys])S.focus=null;run(false);return}
+ if(t.dataset.tab){S.tab=t.dataset.tab;if(S.tab!=="cat")S.focus=null;S.pick=null;render();if(S.tab==="calc")fitResult();
+   if(S.tab==="cat"||S.tab==="guide")map.fitBounds(L.latLngBounds(POIS.map(function(p){return p.c}).filter(function(c){return c[1]>-93})),{padding:[40,40]});return}
+ if(t.id==="pickA"||t.id==="pickB"){var k=t.id.slice(-1);S.pick=S.pick===k?null:k;render();
+   if(S.pick&&window.matchMedia("(max-width:820px)").matches){document.getElementById("app").classList.add("collapsed");sizeFix()}return}
+ if(t.id==="swap"){var a=S.A;S.A=S.B;S.B=a;run(true);return}
+ if(t.id==="clear"){S.A=null;S.B=null;S.res=null;S.pick=null;render();map.setView([17.9915,-92.9350],13);return}
+ if(t.dataset.sel){S.sel=+t.dataset.sel;render();fitResult();snap();return}
+ if(t.dataset.f){S.filter=t.dataset.f;S.focus=null;render();
+   var f=FILTERS.filter(function(x){return x.id===S.filter})[0];
+   if(f.p)map.fitBounds(L.latLngBounds(f.p.map(function(id){return poi(id).c})),{padding:[80,80],maxZoom:15});
+   else map.setView([17.9915,-92.9350],13);return}
+ if(t.dataset.r){S.focus=S.focus===t.dataset.r?null:t.dataset.r;render();
+   var r=ROUTES.filter(function(x){return x.id===S.focus})[0];if(r&&r.geom.length)map.fitBounds(L.latLngBounds(r.geom),{padding:[50,50]});snapFocus();}
+}
+document.getElementById("side").addEventListener("click",onPanel);
+document.getElementById("side").addEventListener("change",function(e){
+ if(e.target.id==="selA"||e.target.id==="selB"){var k=e.target.id.slice(-1);setPoint(k,null,e.target.value);run(true);}
+});
+map.on("click",function(e){
+ var ll=[e.latlng.lat,e.latlng.lng];
+ if(S.pick){var k=S.pick;S.pick=null;setPoint(k,ll,null);S.tab="calc";run(true);return}
+ if(S.tab==="calc"&&(!S.A||!S.B)){setPoint(S.A?"B":"A",ll,null);run(true)}
+});
+document.getElementById("toggle").addEventListener("click",function(){
+ var c=document.getElementById("app").classList.toggle("collapsed");this.setAttribute("aria-expanded",!c);sizeFix();
+});
+window.addEventListener("resize",sizeFix);
+
+/* ---------- Inicio: todas las rutas y marcadores; sin cálculo hasta tener A y B ---------- */
+render();
+setTimeout(function(){map.invalidateSize()},250);
+})();
+</script>
