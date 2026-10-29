@@ -91,6 +91,9 @@ select{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);b
 .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
 .rd{margin:8px 0 0;font-size:12px;line-height:1.45;color:var(--muted)}
 .alt .badge{white-space:nowrap}
+.soon{display:inline-block;margin-left:8px;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+.rcard.prox{border-style:dashed;cursor:default}
+.lyr:disabled{opacity:.7;cursor:not-allowed;text-decoration:none}
 .empty{color:var(--muted);padding:12px 0}
 
 /* Leaflet (núcleo mínimo; la hoja oficial viene de un host que este visor bloquea) */
@@ -245,6 +248,10 @@ var ROUTES=[
  {id:"e8",sys:"estudiantil",lab:"Estudiantil 08",n:"Gaviotas Sur/Norte · Malecón · Mercado Pino Suárez · Terminal ADO · UJAT Zona Cultura",tipo:"Combi urbana",fare:"$10.50",stu:null,freq:7,color:"#4F46E5",
   wp:[[17.9725,-92.9110],[17.9825,-92.9145],[17.9905,-92.9155],[17.9958,-92.9142],[17.9962,-92.9218],[17.9955,-92.9310],[17.9972,-92.9312]]}
 ];
+/* Rutas que aún no operan: salen en el catálogo con la etiqueta "Próximamente 2030" y no entran al cálculo.
+   Para activar una, quita su id de esta lista. */
+var PROXIMAMENTE=["m1","m2","m3","m4","m5","m6","f1","f2"];
+ROUTES.forEach(function(r){r.prox=PROXIMAMENTE.indexOf(r.id)>=0});
 var FILTERS=[
  {id:"all",l:"Todas"},{id:"cultura",l:"Zona Cultura (DACEA/DACSyH)",p:["cultura"]},{id:"dacs",l:"DACS (Salud)",p:["dacs"]},
  {id:"dacbiol",l:"DACBIOL",p:["dacbiol"]},{id:"chontalpa",l:"Chontalpa",p:["chontalpa"]},
@@ -327,7 +334,7 @@ function setPoint(k,latlng,pid){
  if(!okPt(latlng))return;
  S[k]={c:[latlng[0],latlng[1]],pid:null,l:"Punto en el mapa"};
 }
-function activeRoutes(){return ROUTES.filter(function(r){return S.sys[r.sys]})}
+function activeRoutes(){return ROUTES.filter(function(r){return S.sys[r.sys]&&!r.prox})}
 
 /* ---------- Mapa ---------- */
 var map=L.map("map",{zoomControl:false,attributionControl:true}).setView([17.9915,-92.9350],13);
@@ -469,7 +476,8 @@ function minutes(x){
  return Math.round(t);
 }
 function layersHTML(){
- var h="";Object.keys(SYS).forEach(function(k){h+='<button class="lyr" type="button" data-sys="'+k+'" aria-pressed="'+S.sys[k]+'"><span class="sw" style="background:'+SYS[k].c+'"></span>'+SYS[k].l+'</button>'});
+ var h="";Object.keys(SYS).forEach(function(k){var soon=ROUTES.every(function(r){return r.sys!==k||r.prox});
+  h+='<button class="lyr" type="button" data-sys="'+k+'"'+(soon?' disabled aria-pressed="false"':' aria-pressed="'+S.sys[k]+'"')+'><span class="sw" style="background:'+SYS[k].c+'"></span>'+SYS[k].l+(soon?' · Próx. 2030':'')+'</button>'});
  return h;
 }
 function calcHTML(){
@@ -513,10 +521,13 @@ function catHTML(){
  var f=FILTERS.filter(function(x){return x.id===S.filter})[0],h='<div class="chips" role="group" aria-label="Filtrar por destino">';
  FILTERS.forEach(function(x){h+='<button class="chip" type="button" data-f="'+x.id+'" aria-pressed="'+(x.id===S.filter)+'">'+x.l+'</button>'});
  h+='</div>';
- var list=activeRoutes().filter(function(r){return matches(f,r)});
- if(!list.length)return h+'<div class="empty">Ninguna ruta activa pasa a menos de 350 m de este lugar.</div>';
- h+='<p class="hint">'+list.length+' rutas'+(f.p?' pasan a menos de 350 m de '+(f.id==="plazas"?"las plazas":"este campus"):'')+'. Toca una ruta para verla en el mapa.</p>';
+ var list=ROUTES.filter(function(r){return (r.prox||S.sys[r.sys])&&matches(f,r)});
+ list=list.filter(function(r){return !r.prox}).concat(list.filter(function(r){return r.prox}));
+ var nAct=list.filter(function(r){return !r.prox}).length,nSoon=list.length-nAct;
+ if(!list.length)return h+'<div class="empty">Ninguna ruta pasa a menos de 350 m de este lugar.</div>';
+ h+='<p class="hint">'+nAct+' rutas en servicio'+(nSoon?' y '+nSoon+' próximamente 2030':'')+(f.p?', a menos de 350 m de '+(f.id==="plazas"?"las plazas":"este campus"):'')+'. Toca una ruta en servicio para verla en el mapa.</p>';
  list.forEach(function(r){
+  if(r.prox){h+='<div class="rcard prox" style="--rc:'+r.color+'">'+badge(r)+'<span class="soon">Próximamente 2030</span><h3>'+esc(r.n)+'</h3>'+(r.cov?'<p class="rd">'+esc(r.cov)+'</p>':'')+(r.tr?'<p class="rd"><b>Transferencias:</b> '+esc(r.tr)+'</p>':'')+'</div>';return}
   var on=S.focus===r.id;
   h+='<button class="rcard" type="button" data-r="'+r.id+'" aria-pressed="'+on+'" style="--rc:'+r.color+'">'+badge(r)+'<h3>'+esc(r.n)+'</h3><div class="meta"><span>'+esc(r.tipo)+'</span><span>'+(r.freq?'Cada '+r.freq+' min':'Frecuencia por confirmar')+'</span><span>'+esc(fareTxt(r))+'</span></div>';
   if(on){
@@ -530,11 +541,11 @@ function catHTML(){
  return h;
 }
 function guideHTML(){
- return '<div class="guide"><h3>Tres sistemas, una sola búsqueda</h3><p>Esta guía junta el sistema terrestre MOVITAB (rutas 1 a 6), el sistema fluvial del Río Grijalva (F1 y F2) y las rutas estudiantiles tradicionales. Activa o apaga cada sistema con los botones de color arriba del panel.</p>'+
+ return '<div class="guide"><h3>Tres sistemas, una sola búsqueda</h3><p>Hoy funcionan las rutas estudiantiles. El sistema terrestre MOVITAB (rutas 1 a 6) y el sistema fluvial del Río Grijalva (F1 y F2) salen en el catálogo como Próximamente 2030 y no entran al cálculo. Los nodos y embarcaderos 2030 sí se pueden elegir como punto A o B.</p>'+
  '<h3>Cómo se elige la ruta</h3><ul><li>Primero busca una sola ruta que pase a menos de 600 m de A y de B.</li><li>Si no existe, busca dos rutas que compartan un nodo a menos de 350 m. Pagas una tarifa por cada ruta.</li><li>Entre varias opciones gana la que pide menos caminata.</li></ul>'+
  '<h3>Cómo leer el parabrisas</h3><p>Cada combi lleva un letrero con el nombre o número de ruta y los lugares principales por donde pasa. Confirma con el chofer antes de subir.</p>'+
  '<h3>Nodos clave</h3><ul><li><b>Pino Suárez y Casa Blanca:</b> transferencia multimodal del Centro.</li><li><b>Embarcaderos Centro y Gaviotas:</b> enlazan MOVITAB con el Río Grijalva.</li><li><b>Estaciones Centrales 1 y 2:</b> Centro de Convenciones y Parque Tabasco, sobre la ampliación de Paseo Tabasco.</li><li><b>Terminal ADO (Av. Mina):</b> llegada de autobuses foráneos.</li><li><b>Paradero Hospitales (27 de Febrero) y Hospital Juan Graham:</b> red hospitalaria.</li></ul>'+
- '<h3>Tarifas del catálogo</h3><ul><li>MOVITAB: $10.50 MXN, estudiantes $5.50.</li><li>Fluvial: F1 $12.00 y F2 $15.00.</li><li>Combis estudiantiles: $10.50, estudiantes $5.50 en las rutas 01, 02 y 06. Van a Chontalpa: $25 a $30.</li><li>Lleva monedas. No des por hecho que haya cambio.</li></ul>'+
+ '<h3>Tarifas del catálogo</h3><ul><li>MOVITAB (cuando entre en servicio): $10.50 MXN, estudiantes $5.50.</li><li>Fluvial (cuando entre en servicio): F1 $12.00 y F2 $15.00.</li><li>Combis estudiantiles: $10.50, estudiantes $5.50 en las rutas 01, 02 y 06. Van a Chontalpa: $25 a $30.</li><li>Lleva monedas. No des por hecho que haya cambio.</li></ul>'+
  '<div class="note">Rutas, tarifas y nodos son datos de referencia del proyecto Villahermosa 2030 y pueden cambiar. El trazado terrestre se ajusta a las calles con OSRM cuando hay conexión. Sin ella queda aproximado, con líneas rectas entre waypoints. Los tramos fluviales siempre son aproximados. Caminata y tiempo son estimaciones (80 m por minuto a pie, 20 km/h en tierra, 15 km/h en el río, espera de la mitad de la frecuencia).</div></div>';
 }
 function render(){
